@@ -40,10 +40,14 @@ public class Client {
   private boolean isDone;
   private final BufferedReader in;
   private final PrintWriter writer;
+  private final String username;
+  private final String password;
 
-  public Client(String host, int port) throws IOException {
+  public Client(String host, int port, String username, String password) throws IOException {
     this.host = host;
     this.port = port;
+    this.username = Base64.getEncoder().encodeToString(username.getBytes());
+    this.password = Base64.getEncoder().encodeToString(password.getBytes());
     this.conTimeout = 30000;
     this.timeout = 60000;
     isDone = false;
@@ -51,7 +55,7 @@ public class Client {
     response = "Log:\n";
     socket = new Socket(this.host, this.port);
     in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-    writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true);
+    writer = new PrintWriter(socket.getOutputStream(), true);
   }
 
   public String getResponse() {
@@ -61,7 +65,9 @@ public class Client {
   public void close() throws IOException {
     if (socket.isConnected()) {
       socket.close();
-      state = States.Close;
+      writer.close();
+      in.close();
+
     }
   }
 
@@ -89,26 +95,25 @@ public class Client {
 
       } else if (state == States.User && responseCode.equals("334")) {
 
-        writer.println(Base64.getEncoder().encodeToString(email.getFrom().getBytes()));
+        writer.println(username);
 
         state = States.Pass;
 
       } else if (state == States.Pass && responseCode.equals("334")) {
 
-        writer.println(Base64.getEncoder().encodeToString(email.getPassword().getBytes()));
+        writer.println(password);
 
         state = States.Mail;
 
       } else if (state == States.Mail && responseCode.equals("235")) {
 
-        writer.println("MAIL FROM: " + email.getFrom());
+        writer.println("MAIL FROM: <Gg<" + email.getFrom() + ">>");
 
         state = States.Rcpt;
 
       } else if (state == States.Rcpt && responseCode.equals("250")) {
 
-        writer.println("RCPT TO: " + email.getFrom());
-//        System.out.println("RCPT TO:" + email.getTo());
+        writer.println("RCPT TO: <" + email.getTo() + ">");
 
         state = States.Data;
 
@@ -119,27 +124,26 @@ public class Client {
         state = States.Body;
 
       } else if (state == States.Body && responseCode.equals("354")) {
+        String content;
+        content = email.getContent();
+        socket.getOutputStream().write((content + "\r\n").getBytes());
+        socket.getOutputStream().write("\r\n.\r\n".getBytes());
+//        writer.println(email.getContent() + "\r\n" + "\r\n.\r\n");
 
-        writer.print(email.getBody() + "\r\n.\r\n");
+//        writer.print("\r\n.\r\n");
 
         state = States.Quit;
 
       } else if (state == States.Quit && responseCode.equals("250")) {
 
         writer.println("QUIT");
-
-        state = States.Close;
-
-      } else if (state == States.Close) {
-        return;
-      } else {
-        writer.close();
-        in.close();
-        state = States.Close;
-        isDone = true;
         close();
+
+      } else {
+        close();
+        return;
       }
-    } while (!isDone);
+    } while (!socket.isClosed());
 
 
 
