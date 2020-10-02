@@ -53,10 +53,6 @@ public class Client {
     writer = new PrintWriter(new DataOutputStream(socket.getOutputStream()));
   }
 
-  public void report(String message){
-    System.out.println(message);
-  }
-
   public String getResponse() {
     return response;
   }
@@ -73,29 +69,21 @@ public class Client {
   }
 
 
-  public void sendEmail(Email email){
+  public void sendEmail(Email email) throws IOException {
     String responseLine;
     String responseCode;
 
-    try {
-//      do {
-        responseLine = in.readLine();
-        this.response+=responseLine + "\n";
+    do {
 
-        System.out.println(responseLine);
-//      } while (in.readBoolean() && (responseLine.charAt(3) != ' '));
+      responseLine = in.readLine();
+      this.response += responseLine + "\n";
+
+      System.out.println(responseLine);
 
       responseCode = responseLine.substring(0, 3);
 
-      if (state == States.Init && responseCode.equals("220")){
-        writer.print("HELO localhost\r\n");
-        writer.flush();
-
-        state = States.HandShake;
-
-      } else if (state == States.HandShake && responseCode.equals("250")) {
-
-        writer.print("HELO localhost\r\n");
+      if (state == States.Init && responseCode.equals("220")) {
+        writer.print("HELO Andrew\r\n");
         writer.flush();
 
         state = States.Auth;
@@ -107,65 +95,64 @@ public class Client {
 
         state = States.User;
 
-      } else if (state == States.User && responseCode.equals("334")){
+      } else if (state == States.User && responseCode.equals("334")) {
 
         writer.print(Base64.getEncoder().encodeToString(email.getFrom().getBytes()) + "\r\n");
         writer.flush();
 
         state = States.Pass;
 
-      } else if (state == States.Pass && responseCode.equals("334")){
+      } else if (state == States.Pass && responseCode.equals("334")) {
 
         writer.print(Base64.getEncoder().encodeToString(email.getPassword().getBytes()) + "\r\n");
         writer.flush();
 
         state = States.Mail;
 
-      } else if (state == States.Mail && responseCode.equals("235")){
+      } else if (state == States.Mail && responseCode.equals("235")) {
 
-        writer.print("MAIL FROM:<" + email.getFrom() + ">\r\n");
+        writer.print("MAIL FROM: " + email.getFrom() + "\r\n");
         writer.flush();
 
         state = States.Rcpt;
 
-      } else if (state == States.Rcpt && responseCode.equals("250")){
+      } else if (state == States.Rcpt && responseCode.equals("250")) {
 
-        writer.print("RCPT TO:<" + email.getTo() + ">\r\n");
+        writer.print("RCPT TO: " + email.getTo() + "\r\n");
         writer.flush();
 
         state = States.Data;
 
-      } else if (state == States.Data && responseCode.equals("250")){
+      } else if (state == States.Data && responseCode.equals("250")) {
 
         writer.print("DATA\r\n");
         writer.flush();
 
         state = States.Body;
 
-      } else if (state == States.Body && responseCode.equals("354")){
+      } else if (state == States.Body && responseCode.equals("354")) {
 
-        writer.print(email.getBody() + "\r\n");
+        writer.print(email.getBody() + "\r\n.\r\n");
         writer.flush();
 
         state = States.Quit;
 
-      } else if (state == States.Quit && responseCode.equals("250")){
+      } else if (state == States.Quit && responseCode.equals("250")) {
 
         writer.print("QUIT\r\n");
         writer.flush();
 
         state = States.Close;
 
-      } else if (state == States.Close){
+      } else if (state == States.Close) {
         return;
       } else {
         state = States.Close;
         isDone = true;
+        close();
       }
+    } while (!isDone);
 
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
 
 
   }
