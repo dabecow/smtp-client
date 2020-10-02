@@ -8,6 +8,6 @@ public class Test {
     Email email = new Email("cio01@ostu.ru", "cio01@ostu.ru", "Obi-Van Kenobi?!", "Obi-Van Kenobi?!", "cio01p");
     Client client = new Client("mail.oreluniver.ru", 25);
     client.sendEmail(email);
-    System.out.println(client.getResponse());
+//    System.out.println(client.getResponse());
   }
 }
