@@ -1,13 +1,8 @@
 package smtpclient;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Base64;
@@ -15,8 +10,6 @@ import java.util.Base64;
 public class Client {
 
   private enum States{
-    Tls,
-    HandShake,
     Auth,
     User,
     Pass,
@@ -25,32 +18,25 @@ public class Client {
     Data,
     Init,
     Body,
-    Quit,
-    Close
+    Sent
   }
 
   private final String host;
   private final int port;
-//  private Email email;
   private final Socket socket;
-  private final int conTimeout;
-  private final int timeout;
   private States state;
   private String response;
-  private boolean isDone;
   private final BufferedReader in;
   private final PrintWriter writer;
   private final String username;
   private final String password;
+  private String lastResponse;
 
   public Client(String host, int port, String username, String password) throws IOException {
     this.host = host;
     this.port = port;
     this.username = Base64.getEncoder().encodeToString(username.getBytes());
     this.password = Base64.getEncoder().encodeToString(password.getBytes());
-    this.conTimeout = 30000;
-    this.timeout = 60000;
-    isDone = false;
     state = States.Init;
     response = "Log:\n";
     socket = new Socket(this.host, this.port);
@@ -64,6 +50,7 @@ public class Client {
 
   public void close() throws IOException {
     if (socket.isConnected()) {
+      writer.println("QUIT");
       socket.close();
       writer.close();
       in.close();
@@ -71,19 +58,29 @@ public class Client {
     }
   }
 
+  public String getLastResponse() {
+    return lastResponse;
+  }
+
   public void sendEmail(Email email) throws IOException {
-
+    String   responseLine,
+             responseCode;
     do {
+      if (state == States.Sent) //нужно для повторной отправки сообщений
+        if (lastResponse.startsWith("250")) {
+          state = States.Mail;
+          responseCode = "235";
+        } else return;
+      else {
+        responseLine = in.readLine();
+        this.response += responseLine + "\n";
 
-      String responseLine = in.readLine();
-      this.response += responseLine + "\n";
+        lastResponse = responseLine;
 
-      System.out.println(responseLine);
-
-      String responseCode = responseLine.substring(0, 3);
-
+        responseCode = responseLine.substring(0, 3);
+      }
       if (state == States.Init && responseCode.equals("220")) {
-        writer.println("HELO Andrew");
+        writer.println("HELO localhost");
 
         state = States.Auth;
 
@@ -107,7 +104,7 @@ public class Client {
 
       } else if (state == States.Mail && responseCode.equals("235")) {
 
-        writer.println("MAIL FROM: <Gg<" + email.getFrom() + ">>");
+        writer.println("MAIL FROM: <" + email.getFrom() + ">");
 
         state = States.Rcpt;
 
@@ -124,28 +121,17 @@ public class Client {
         state = States.Body;
 
       } else if (state == States.Body && responseCode.equals("354")) {
-        String content;
-        content = email.getContent();
-        socket.getOutputStream().write((content + "\r\n").getBytes());
-        socket.getOutputStream().write("\r\n.\r\n".getBytes());
-//        writer.println(email.getContent() + "\r\n" + "\r\n.\r\n");
 
-//        writer.print("\r\n.\r\n");
-
-        state = States.Quit;
-
-      } else if (state == States.Quit && responseCode.equals("250")) {
-
-        writer.println("QUIT");
-        close();
-
+        writer.println(email.getContent());
+        writer.println(".");
+        lastResponse = in.readLine();
+        response+=lastResponse;
+        state = States.Sent;
+        return;
       } else {
-        close();
         return;
       }
     } while (!socket.isClosed());
-
-
 
   }
 

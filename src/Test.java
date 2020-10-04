@@ -1,14 +1,20 @@
 import java.io.IOException;
 import smtpclient.Client;
 import smtpclient.Email;
+import view.ConsoleClient;
+import view.IConsoleClient;
 
 public class Test {
 
   public static void main(String[] args) throws IOException {
 
-    Email email = new Email("cio01@ostu.ru", "cio01@ostu.ru", "test", "testsettsetsetsetesst");
-    Client client = new Client("mail.oreluniver.ru", 25, "cio01", "cio01p");
-    client.sendEmail(email);
-//    System.out.println(client.getResponse());
+    IConsoleClient iConsoleClient = new ConsoleClient();
+
+    boolean isConnected;
+    do {
+      isConnected = iConsoleClient.connectToServer();
+    } while (!isConnected);
+
+    iConsoleClient.runMessageInterface();
   }
 }

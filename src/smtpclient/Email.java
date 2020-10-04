@@ -1,16 +1,22 @@
 package smtpclient;
 
 public class Email {
+  private String name;
   private String from;
   private String to;
   private String subject;
   private String body;
 
-  public Email(String from, String to, String subject, String body){
-    this.from = from;
+  public Email(String name, String from, String to, String subject, String body){
+    this.name = name;
+    this.from = name + " <" + from + ">";
     this.to = to;
     this.subject = subject;
     this.body = body;
+  }
+
+  public String getName() {
+    return name;
   }
 
   public String getBody() {
@@ -30,7 +36,7 @@ public class Email {
   }
 
   public String getContent(){
-    return "From " + this.from + "\r\nTo: " + this.to + "\r\nSubject: " + this.subject + "\r\n" + this.body;
+    return "From: " + from + "\r\nTo: " + to + "\r\nSubject: " + subject + "\r\n\n" + body;
   }
 
 }
